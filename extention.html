@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Extension</title>
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <script type="module">
+            import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+            import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+            import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+            const firebaseConfig = {
+                apiKey: "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958",
+                authDomain: "unicart-c9cc2.firebaseapp.com",
+                projectId: "unicart-c9cc2",
+                storageBucket: "unicart-c9cc2.firebasestorage.app",
+                messagingSenderId: "498329018726",
+                appId: "1:498329018726:web:ce6a79d1ff8ea1ffe228a7",
+                measurementId: "G-53C0T6XWRY"
+            };
+
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+        </script>
+
+        
+        <style type="text/tailwindcss">
+            @layer components {
+                
+
+            }
+            
+            @layer utilities{
+            button{
+                @apply rounded-xl m-[5px] p-[5px] w-[120px] bg-gradient-to-r from-pink-300 via-pink-400 to-violet-400 border-1 border-white hover:bg-white hover:scale-110
+            }
+            
+                
+            }
+        </style>
+    </head>
+        
+    <body class="w-[300px] border-1 border-purple ">
+        <h1 class="text-center">☑️Add to cart detected</h1>
+        <div class="flex justify-center">
+        <button>Save</button>
+
+        <button>Don't Save</button>
+        <button id="openInventory" class="w-[200px]">Go to inventory</button>
+
+<script>
+  document.getElementById("openInventory").addEventListener("click", () => {
+    chrome.tabs.create({
+      url: chrome.runtime.getURL("index.html")
+    });
+  });
+</script>
+            </div>
+        <script>
+            
+        </script>
+    </body>
+</html>
