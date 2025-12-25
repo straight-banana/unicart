@@ -2,76 +2,54 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>UniCart</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
 <style type="text/tailwindcss">
-@layer utilities {
-  button {
-    @apply rounded-xl m-[5px] p-[10px] w-[200px];
-  }
+@layer utilities{
+  button{@apply rounded-xl m-[5px] p-[10px] w-[200px]}
 }
 </style>
 </head>
 
 <body class="bg-gradient-to-b from-purple-200 to-violet-400">
 
-<!-- 🔐 AUTH MODAL -->
-<div id="authModal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-  <div class="bg-white p-6 rounded-xl w-[300px]">
-    <h2 class="text-xl font-bold text-center mb-3">Login / Register</h2>
-
-    <input id="email" class="border w-full p-2 mb-2" placeholder="Email">
-    <input id="password" type="password" class="border w-full p-2 mb-3" placeholder="Password">
-
-    <button id="loginBtn" class="bg-purple-400 w-full text-white">Login</button>
-    <button id="registerBtn" class="bg-pink-400 w-full text-white">Register</button>
+<!-- AUTH MODAL -->
+<div id="authModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  <div class="bg-white p-6 rounded-xl w-[300px] text-center">
+    <h2 class="text-xl font-bold mb-3">Login / Register</h2>
+    <input id="email" type="email" placeholder="Email" class="w-full p-2 border rounded mb-2"/>
+    <input id="password" type="password" placeholder="Password" class="w-full p-2 border rounded mb-3"/>
+    <button id="loginBtn" class="bg-violet-500 text-white w-full mb-2">Login</button>
+    <button id="registerBtn" class="bg-pink-500 text-white w-full">Register</button>
   </div>
 </div>
 
-<!-- NAV -->
-<nav class="px-[20px] flex justify-between items-center">
+<nav class="px-5 flex justify-between items-center">
   <h1 class="text-3xl font-bold text-violet-800">UniCart</h1>
-  <div id="logoutBtn" class="cursor-pointer p-[10px] rounded-3xl bg-gradient-to-r from-pink-400 to-violet-400 text-white">
-    👤 Logout
-  </div>
+  <button id="logoutBtn" class="hidden bg-red-400 text-white">Logout</button>
 </nav>
 
-<main class="flex">
-
-<!-- SIDEBAR -->
-<div class="w-[250px] h-screen bg-gradient-to-b from-purple-300 to-pink-300 flex flex-col items-center py-[20px]">
-  <button>Dashboard</button>
-  <button>Favorites</button>
-  <button>Compare List</button>
-  <button>Settings</button>
-  <button>Help</button>
-</div>
-
-<!-- CONTENT -->
-<div class="flex-1 p-4">
-  <h2 class="text-xl font-bold text-violet-800">My Products</h2>
-  <p class="text-purple-800">Your saved products appear here.</p>
-
+<main class="p-5">
+  <h2 class="text-xl font-bold text-violet-800 mb-3">My Products</h2>
   <div id="productGrid"
-    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-6">
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
   </div>
-</div>
-
 </main>
 
-<!-- 🔥 FIREBASE + LOGIC -->
+<!-- FIREBASE -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getAuth,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  onAuthStateChanged,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
 import {
   getFirestore,
   collection,
@@ -81,14 +59,20 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  YOUR_FIREBASE_CONFIG_HERE
+  apiKey: "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958",
+  authDomain: "unicart-c9cc2.firebaseapp.com",
+  projectId: "unicart-c9cc2",
+  storageBucket: "unicart-c9cc2.firebasestorage.app",
+  messagingSenderId: "498329018726",
+  appId: "1:498329018726:web:ce6a79d1ff8ea1ffe228a7",
+  measurementId: "G-53C0T6XWRY"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* DOM ELEMENTS */
+/* DOM */
 const authModal = document.getElementById("authModal");
 const loginBtn = document.getElementById("loginBtn");
 const registerBtn = document.getElementById("registerBtn");
@@ -97,42 +81,31 @@ const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const productGrid = document.getElementById("productGrid");
 
-/* LOGIN */
-loginBtn.addEventListener("click", async () => {
+/* AUTH */
+loginBtn.onclick = async () => {
   try {
-    await signInWithEmailAndPassword(
-      auth,
-      emailInput.value,
-      passwordInput.value
-    );
-  } catch (e) {
-    alert(e.message);
-  }
-});
+    await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+  } catch (e) { alert(e.message); }
+};
 
-/* REGISTER */
-registerBtn.addEventListener("click", async () => {
+registerBtn.onclick = async () => {
   try {
-    await createUserWithEmailAndPassword(
-      auth,
-      emailInput.value,
-      passwordInput.value
-    );
-  } catch (e) {
-    alert(e.message);
-  }
-});
+    await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+  } catch (e) { alert(e.message); }
+};
 
-/* LOGOUT */
-logoutBtn.addEventListener("click", async () => {
-  await signOut(auth);
-  location.reload();
-});
+logoutBtn.onclick = () => signOut(auth);
 
 /* AUTH STATE */
-onAuthStateChanged(auth, (user) => {
-  if (!user) return;
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    authModal.style.display = "flex";
+    logoutBtn.classList.add("hidden");
+    return;
+  }
+
   authModal.style.display = "none";
+  logoutBtn.classList.remove("hidden");
   loadProducts(user.uid);
 });
 
@@ -141,37 +114,28 @@ async function loadProducts(uid) {
   productGrid.innerHTML = "";
 
   const q = query(
-    collection(db, "user_products"),
+    collection(db, "products"),
     where("userId", "==", uid)
   );
 
   const snapshot = await getDocs(q);
 
-  if (snapshot.empty) {
-    productGrid.innerHTML = "<p>No products saved yet.</p>";
-    return;
-  }
-
   snapshot.forEach(doc => {
     const p = doc.data();
 
     const card = document.createElement("div");
-    card.className =
-      "rounded-xl bg-pink-300 border border-white/50 p-3 text-center hover:bg-purple-300 hover:scale-110 transition";
+    card.className = "bg-pink-300 p-3 rounded-xl text-center hover:scale-105";
 
     card.innerHTML = `
-      <div class="bg-white h-[200px] rounded-xl overflow-hidden flex items-center justify-center mb-2">
-        <img src="${p.image || ''}" class="max-h-full">
-      </div>
+      <img src="${p.image}" class="h-[200px] w-full object-cover rounded mb-2">
       <h3 class="font-bold text-white">${p.name}</h3>
       <p>Price: ${p.price}</p>
-      <p>Website: ${p.source}</p>
+      <p>${p.website}</p>
     `;
 
     productGrid.appendChild(card);
   });
 }
 </script>
-
 </body>
 </html>
