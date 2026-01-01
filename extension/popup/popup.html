@@ -7,11 +7,16 @@
 <body>
   <h3>UniCart</h3>
 
-  <input id="email" placeholder="Email" />
-  <input id="password" type="password" placeholder="Password" />
+  <div id="loggedOutView">
+    <input id="email" placeholder="Email" autocomplete="username" />
+    <input id="password" type="password" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn">Login</button>
+  </div>
 
-  <button id="loginBtn">Login</button>
-  <button id="logoutBtn" style="display:none;">Logout</button>
+  <div id="loggedInView" style="display:none;">
+    <div>Logged in as: <span id="uid"></span></div>
+    <button id="logoutBtn">Logout</button>
+  </div>
 
   <p id="status"></p>
 

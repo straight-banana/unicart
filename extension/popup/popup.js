@@ -1,47 +1,113 @@
 const API_KEY = "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958";
 
 /* DOM */
-const email = document.getElementById("email");
-const password = document.getElementById("password");
+const loggedOutView = document.getElementById("loggedOutView");
+const loggedInView = document.getElementById("loggedInView");
+const uidEl = document.getElementById("uid");
+const emailEl = document.getElementById("email");
+const passwordEl = document.getElementById("password");
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
-const status = document.getElementById("status");
+const statusEl = document.getElementById("status");
 
-/* LOGIN */
-loginBtn.onclick = async () => {
-  try {
-    const res = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.value,
-          password: password.value,
-          returnSecureToken: true
-        })
-      }
-    );
+function setStatus(text) {
+  statusEl.textContent = text;
+}
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error.message);
+function storageGet(keys) {
+  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+}
 
-    chrome.runtime.sendMessage({
-      type: "AUTH_LOGIN",
-      payload: {
-        uid: data.localId,
-        token: data.idToken
-      }
-    });
+function storageSet(obj) {
+  return new Promise((resolve) => chrome.storage.local.set(obj, resolve));
+}
 
-    status.textContent = "✅ Logged in";
-  } catch (e) {
-    status.textContent = e.message;
+function storageRemove(keys) {
+  return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+}
+
+function setLoggedOutUI() {
+  loggedOutView.style.display = "block";
+  loggedInView.style.display = "none";
+  uidEl.textContent = "";
+}
+
+function setLoggedInUI(uid) {
+  loggedOutView.style.display = "none";
+  loggedInView.style.display = "block";
+  uidEl.textContent = uid;
+}
+
+async function restoreUIFromStorage() {
+  const res = await storageGet(["auth"]);
+  const auth = res.auth;
+  if (auth && typeof auth.uid === "string" && typeof auth.idToken === "string") {
+    setLoggedInUI(auth.uid);
+    setStatus("✅ Logged in");
+  } else {
+    setLoggedOutUI();
+    setStatus("Not logged in");
   }
-};
+}
 
-/* LOGOUT */
-logoutBtn.onclick = () => {
+async function signInWithPassword(email, password) {
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: true
+      })
+    }
+  );
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data?.error?.message || res.statusText || "Login failed";
+    throw new Error(message);
+  }
+
+  return {
+    uid: data.localId,
+    idToken: data.idToken
+  };
+}
+
+loginBtn.addEventListener("click", async () => {
+  const email = (emailEl.value || "").trim();
+  const password = passwordEl.value || "";
+
+  if (!email || !password) {
+    setStatus("Email + password required");
+    return;
+  }
+
+  setStatus("Logging in...");
+
+  try {
+    const auth = await signInWithPassword(email, password);
+
+    // Requirement: store { uid, idToken } in chrome.storage.local
+    await storageSet({ auth });
+
+    // Let background sync immediately (it also restores from storage on wake).
+    chrome.runtime.sendMessage({ type: "AUTH_LOGIN", payload: auth });
+
+    setLoggedInUI(auth.uid);
+    setStatus("✅ Logged in");
+  } catch (e) {
+    setStatus(String(e?.message || e));
+  }
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await storageRemove(["auth"]);
   chrome.runtime.sendMessage({ type: "AUTH_LOGOUT" });
-  status.textContent = "Logged out";
-};
+  setLoggedOutUI();
+  setStatus("Logged out");
+});
+
+restoreUIFromStorage().catch((e) => setStatus(String(e?.message || e)));

@@ -43,6 +43,25 @@ function showToast() {
   setTimeout(() => toast.remove(), 2000);
 }
 
+function showErrorToast(message) {
+  const toast = document.createElement("div");
+  toast.innerText = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #111827;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-weight: bold;
+    z-index: 999999;
+  `;
+  document.body.appendChild(toast);
+
+  setTimeout(() => toast.remove(), 2500);
+}
+
 // ================= CLICK LISTENER =================
 document.addEventListener("click", (e) => {
   const el = e.target.closest("button, a, input");
@@ -67,8 +86,25 @@ document.addEventListener("click", (e) => {
 
   showToast();
 
-  chrome.runtime.sendMessage({
-    type: "ADD_TO_CART",
-    payload: product
-  });
+  chrome.runtime.sendMessage(
+    {
+      type: "ADD_TO_CART",
+      payload: product
+    },
+    (response) => {
+      if (chrome.runtime.lastError) {
+        console.warn("UniCart message error:", chrome.runtime.lastError.message);
+        return;
+      }
+
+      if (!response?.ok) {
+        console.warn("UniCart write failed:", response);
+        if (response?.code === "NOT_LOGGED_IN") {
+          showErrorToast("🔒 UniCart: Please log in via extension popup");
+        } else {
+          showErrorToast("⚠️ UniCart: Save failed (check extension logs)");
+        }
+      }
+    }
+  );
 });

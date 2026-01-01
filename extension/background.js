@@ -1,83 +1,184 @@
-/* ========= AUTH STATE ========= */
+/**
+ * UniCart background (MV3 service worker)
+ * - Auth via Firebase Auth REST (handled in popup)
+ * - Firestore writes via Firestore REST
+ * - No Firebase SDK
+ */
 
+const FIREBASE_PROJECT_ID = "unicart-c9cc2";
+
+/**
+ * Stored under chrome.storage.local key "auth" as:
+ * { uid: string, idToken: string }
+ */
 let authState = {
   uid: null,
-  token: null
+  idToken: null
 };
 
-/* ========= LOAD AUTH FROM STORAGE ========= */
-chrome.storage.local.get(["authState"], (res) => {
-  if (res.authState) {
-    authState = res.authState;
-    console.log("🔁 Auth restored:", authState.uid);
+function log(...args) {
+  console.log("[UniCart]", ...args);
+}
+
+function warn(...args) {
+  console.warn("[UniCart]", ...args);
+}
+
+function error(...args) {
+  console.error("[UniCart]", ...args);
+}
+
+function storageGet(keys) {
+  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+}
+
+function storageSet(obj) {
+  return new Promise((resolve) => chrome.storage.local.set(obj, resolve));
+}
+
+function storageRemove(keys) {
+  return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+}
+
+async function restoreAuthFromStorage() {
+  const res = await storageGet(["auth"]);
+  const stored = res.auth;
+
+  if (stored && typeof stored.uid === "string" && typeof stored.idToken === "string") {
+    authState = { uid: stored.uid, idToken: stored.idToken };
+    log("Auth restored", { uid: authState.uid });
+  } else {
+    authState = { uid: null, idToken: null };
+    log("No auth in storage");
+  }
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  restoreAuthFromStorage().catch((e) => error("restoreAuthFromStorage onInstalled failed", e));
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  restoreAuthFromStorage().catch((e) => error("restoreAuthFromStorage onStartup failed", e));
+});
+
+// Service worker can be started without onStartup firing (e.g., message wake). Restore immediately too.
+restoreAuthFromStorage().catch((e) => error("restoreAuthFromStorage on load failed", e));
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (!changes.auth) return;
+
+  const next = changes.auth.newValue;
+  if (next && typeof next.uid === "string" && typeof next.idToken === "string") {
+    authState = { uid: next.uid, idToken: next.idToken };
+    log("Auth updated from storage", { uid: authState.uid });
+  } else {
+    authState = { uid: null, idToken: null };
+    log("Auth cleared from storage");
   }
 });
 
-/* ========= MESSAGE HANDLER ========= */
-chrome.runtime.onMessage.addListener(async (msg, sender) => {
+function asString(value, fallback = "") {
+  if (typeof value === "string" && value.trim()) return value;
+  return fallback;
+}
 
-  /* ---- LOGIN ---- */
-  if (msg.type === "AUTH_LOGIN") {
-    authState = msg.payload;
-
-    chrome.storage.local.set({ authState });
-
-    console.log("✅ Logged in:", authState.uid);
-    return;
+async function writeCartItemToFirestore(item) {
+  if (!authState.uid || !authState.idToken) {
+    const message = "Not logged in";
+    warn("Rejecting ADD_TO_CART:", message);
+    return { ok: false, code: "NOT_LOGGED_IN", message };
   }
 
-  /* ---- LOGOUT ---- */
-  if (msg.type === "AUTH_LOGOUT") {
-    authState = { uid: null, token: null };
+  const endpoint = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${encodeURIComponent(
+    authState.uid
+  )}/cartItems`;
 
-    chrome.storage.local.remove("authState");
+  const fields = {
+    createdAt: { timestampValue: new Date().toISOString() },
+    favorite: { booleanValue: false },
+    name: { stringValue: asString(item?.name, "Unknown") },
+    link: { stringValue: asString(item?.link, "") },
+    image: { stringValue: asString(item?.image, "") },
+    price: { stringValue: asString(item?.price, "") }
+  };
 
-    console.log("👋 Logged out");
-    return;
+  const requestBody = { fields };
+
+  let res;
+  try {
+    res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authState.idToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    });
+  } catch (e) {
+    error("Network error talking to Firestore", e);
+    return { ok: false, code: "NETWORK_ERROR", message: String(e?.message || e) };
   }
 
-  /* ---- ADD TO CART ---- */
-  if (msg.type === "ADD_TO_CART") {
+  const text = await res.text();
+  if (!res.ok) {
+    error("Firestore write failed", {
+      status: res.status,
+      statusText: res.statusText,
+      response: text
+    });
 
-    if (!authState.uid || !authState.token) {
-      console.warn("❌ Add to Cart ignored (not logged in)");
+    // If token is expired/invalid, Firestore returns 401/403; we keep auth as-is
+    // (user can re-login via popup) but we surface a clear error.
+    return { ok: false, code: "FIRESTORE_ERROR", message: text || res.statusText, status: res.status };
+  }
+
+  log("Firestore write OK", text ? JSON.parse(text) : {});
+  return { ok: true };
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  (async () => {
+    if (!msg || typeof msg.type !== "string") {
+      sendResponse({ ok: false, code: "BAD_MESSAGE" });
       return;
     }
 
-    const item = msg.payload;
-
-    const endpoint =
-      `https://firestore.googleapis.com/v1/projects/unicart-c9cc2/databases/(default)/documents/users/${authState.uid}/cartItems`;
-
-    try {
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${authState.token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          fields: {
-            name: { stringValue: item.name || "Unknown" },
-            link: { stringValue: item.link },
-            image: { stringValue: item.image || "" },
-            price: { doubleValue: Number(item.price) || 0 },
-            favorite: { booleanValue: false },
-            createdAt: { timestampValue: new Date().toISOString() }
-          }
-        })
-      });
-
-      if (!res.ok) {
-        const err = await res.text();
-        console.error("🔥 Firestore error:", err);
+    if (msg.type === "AUTH_LOGIN") {
+      const uid = msg?.payload?.uid;
+      const idToken = msg?.payload?.idToken;
+      if (typeof uid !== "string" || typeof idToken !== "string") {
+        sendResponse({ ok: false, code: "BAD_AUTH_PAYLOAD" });
         return;
       }
 
-      console.log("✅ Product saved to Firestore");
-
-    } catch (e) {
-      console.error("🔥 Network error:", e);
+      authState = { uid, idToken };
+      await storageSet({ auth: authState });
+      log("Logged in", { uid });
+      sendResponse({ ok: true });
+      return;
     }
-  }
+
+    if (msg.type === "AUTH_LOGOUT") {
+      authState = { uid: null, idToken: null };
+      await storageRemove(["auth"]);
+      log("Logged out");
+      sendResponse({ ok: true });
+      return;
+    }
+
+    if (msg.type === "ADD_TO_CART") {
+      const result = await writeCartItemToFirestore(msg.payload);
+      sendResponse(result);
+      return;
+    }
+
+    sendResponse({ ok: false, code: "UNKNOWN_MESSAGE_TYPE" });
+  })().catch((e) => {
+    error("Unhandled background error", e);
+    sendResponse({ ok: false, code: "UNHANDLED_ERROR", message: String(e?.message || e) });
+  });
+
+  // IMPORTANT: keep the service worker alive until sendResponse is called.
+  return true;
 });
