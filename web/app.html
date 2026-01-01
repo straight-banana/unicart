@@ -65,23 +65,25 @@
 
 <!-- FIREBASE -->
 <script type="module">
+/* ================= FIREBASE IMPORTS ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+
 import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
 import {
   getFirestore,
   collection,
-  query,
-  where,
   getDocs,
-  updateDoc,
-  doc
+  doc,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+/* ================= FIREBASE CONFIG ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958",
   authDomain: "unicart-c9cc2.firebaseapp.com",
@@ -95,6 +97,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+/* ================= DOM ELEMENTS ================= */
 const authModal = document.getElementById("authModal");
 const profileBtn = document.getElementById("profileBtn");
 const loginBtn = document.getElementById("loginBtn");
@@ -103,44 +106,42 @@ const emailInput = document.getElementById("email");
 const passwordInput = document.getElementById("password");
 const productGrid = document.getElementById("productGrid");
 
-profileBtn.onclick = () => authModal.classList.remove("hidden");
-
-loginBtn.onclick = async () => {
-  try {
-    window.location.href = "login.html"
-    authModal.classList.add("hidden");
-  } catch (e) { alert(e.message); }
-};
-
-registerBtn.onclick = async () => {
-  try {
-    window.location.href = "register.html"
-    authModal.classList.add("hidden");
-  } catch (e) { alert(e.message); }
+/* ================= UI EVENTS ================= */
+profileBtn.onclick = () => {
+  window.location.href = "login.html";
 };
 
 
+/* ================= AUTH STATE ================= */
 onAuthStateChanged(auth, user => {
-  if (!user) return;
-  authModal.classList.add("hidden");
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
   loadProducts(user.uid);
 });
 
+
+/* ================= LOAD PRODUCTS ================= */
 async function loadProducts(uid) {
   productGrid.innerHTML = "";
-  const q = query(collection(db, "products"), where("userId", "==", uid));
-  const snap = await getDocs(q);
 
-  snap.forEach(d => {
-    const p = d.data();
+  const cartRef = collection(db, "users", uid, "cartItems");
+  const snap = await getDocs(cartRef);
+
+  snap.forEach(docSnap => {
+    const p = docSnap.data();
+    const itemId = docSnap.id;
+
     const card = document.createElement("div");
     card.className =
-      "rounded-xl bg-pink-300 h-[300px] w-[250px] text-center font-bold flex flex-col items-center hover:bg-purple-300 hover:scale-110 relative";
-
-    const heartColor = p.favourite ? "❤️" : "🖤";
+      "rounded-xl bg-pink-300 h-[320px] w-[250px] text-center font-bold flex flex-col items-center hover:bg-purple-300 hover:scale-110 relative";
 
     card.innerHTML = `
-      <div class="absolute top-2 right-2 text-2xl cursor-pointer select-none heart">${heartColor}</div>
+      <div class="absolute top-2 right-2 text-2xl cursor-pointer" id="fav-${itemId}">
+        ${p.favorite ? "❤️" : "🖤"}
+      </div>
 
       <div class="bg-white h-[200px] w-full rounded-xl overflow-hidden">
         <img src="${p.image}" class="h-full w-full object-cover">
@@ -148,18 +149,20 @@ async function loadProducts(uid) {
 
       <h1 class="text-white">${p.name}</h1>
       <p>Price: ${p.price}</p>
-      <p>${p.website}</p>
+      <p>${p.link}</p>
     `;
 
-    const heart = card.querySelector(".heart");
-    heart.onclick = async () => {
-      const newValue = !p.favourite;
-      p.favourite = newValue;
-      heart.textContent = newValue ? "❤️" : "🖤";
-      await updateDoc(doc(db, "products", d.id), { favourite: newValue });
-    };
-
     productGrid.appendChild(card);
+
+    /* ❤️ FAVORITE TOGGLE */
+    const favBtn = document.getElementById(`fav-${itemId}`);
+    favBtn.onclick = async () => {
+      await updateDoc(
+        doc(db, "users", uid, "cartItems", itemId),
+        { favorite: !p.favorite }
+      );
+      loadProducts(uid);
+    };
   });
 }
 </script>
