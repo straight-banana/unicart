@@ -1,20 +1,33 @@
 {
   "manifest_version": 3,
-  "name": "UniCart Detector",
-  "version": "2.0",
-  "permissions": ["storage"],
-  "host_permissions": ["<all_urls>"],
+  "name": "UniCart",
+  "description": "Detect Add to Cart and save products to UniCart",
+  "version": "1.0.0",
+
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
+
+  "permissions": [
+    "storage"
+  ],
+
+ "host_permissions": [
+  "https://firestore.googleapis.com/*",
+  "https://identitytoolkit.googleapis.com/*"
+]
+,
+
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/addToCart.js"]
+      "js": ["content/addToCart.js"],
+      "run_at": "document_idle"
     }
-  ],
-  "action": {
-    "default_popup": "popup/popup.html"
-  }
+  ]
 }

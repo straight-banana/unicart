@@ -1,64 +1,47 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import {
-  getAuth,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import {
-  getFirestore,
-  collection,
-  getDocs
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const API_KEY = "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958";
 
-const firebaseConfig = {
-  apiKey: "API_KEY",
-  authDomain: "DOMAIN",
-  projectId: "PROJECT_ID"
-};
+/* DOM */
+const email = document.getElementById("email");
+const password = document.getElementById("password");
+const loginBtn = document.getElementById("loginBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const status = document.getElementById("status");
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-const authBox = document.getElementById("auth");
-const appBox = document.getElementById("app");
-const cart = document.getElementById("cart");
-
-document.getElementById("login").onclick = async () => {
-  const email = email.value;
-  const password = password.value;
-
+/* LOGIN */
+loginBtn.onclick = async () => {
   try {
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch(e) { alert(e.message); }
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.value,
+          password: password.value,
+          returnSecureToken: true
+        })
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error.message);
+
+    chrome.runtime.sendMessage({
+      type: "AUTH_LOGIN",
+      payload: {
+        uid: data.localId,
+        token: data.idToken
+      }
+    });
+
+    status.textContent = "✅ Logged in";
+  } catch (e) {
+    status.textContent = e.message;
+  }
 };
 
-document.getElementById("logout").onclick = () => signOut(auth);
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    authBox.style.display = "block";
-    appBox.style.display = "none";
-    return;
-  }
-
-  authBox.style.display = "none";
-  appBox.style.display = "block";
-  cart.innerHTML = "";
-
-  const ref = collection(db, "users", user.uid, "cartItems");
-  const snap = await getDocs(ref);
-
-  snap.forEach(d => {
-    const p = d.data();
-    cart.innerHTML += `
-      <tr>
-        <td><img src="${p.image}"></td>
-        <td>${p.price}</td>
-        <td><a href="${p.link}" target="_blank">Open</a></td>
-      </tr>
-    `;
-  });
-});
+/* LOGOUT */
+logoutBtn.onclick = () => {
+  chrome.runtime.sendMessage({ type: "AUTH_LOGOUT" });
+  status.textContent = "Logged out";
+};

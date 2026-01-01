@@ -35,10 +35,18 @@
     <button class="w-[5vh] h-[5vh] bg-white rounded-r-[2.5vh] z-10">🔍</button>
   </div>
 
+  <div class="relative">
   <div id="profileBtn"
     class="p-[10px] rounded-3xl bg-gradient-to-r from-pink-400 to-violet-400 hover:scale-110 text-white cursor-pointer">
-    👤
+    👤 <span id="usernameDisplay" class="ml-1 text-sm"></span>
   </div>
+
+  <div id="logoutBtn"
+    class="hidden absolute right-0 mt-2 bg-white text-red-500 font-bold px-4 py-2 rounded-xl cursor-pointer">
+    Logout
+  </div>
+</div>
+
 </nav>
 
 <main class="flex">
@@ -63,7 +71,6 @@
 </div>
 </main>
 
-<!-- FIREBASE -->
 <script type="module">
 /* ================= FIREBASE IMPORTS ================= */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -71,8 +78,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getAuth,
   onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import {
@@ -80,6 +86,7 @@ import {
   collection,
   getDocs,
   doc,
+  getDoc,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -97,38 +104,59 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* ================= DOM ELEMENTS ================= */
-const authModal = document.getElementById("authModal");
-const profileBtn = document.getElementById("profileBtn");
-const loginBtn = document.getElementById("loginBtn");
-const registerBtn = document.getElementById("registerBtn");
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
+/* ================= DOM ================= */
 const productGrid = document.getElementById("productGrid");
+const profileBtn = document.getElementById("profileBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const usernameDisplay = document.getElementById("usernameDisplay");
 
-/* ================= UI EVENTS ================= */
-profileBtn.onclick = () => {
+/* ================= EXTENSION SYNC ================= */
+function syncAuthToExtension(uid, idToken) {
+  if (!chrome?.runtime?.sendMessage) return;
+
+  chrome.runtime.sendMessage({
+    type: "SYNC_AUTH",
+    payload: { uid, idToken }
+  });
+}
+
+/* ================= PROFILE MENU ================= */
+profileBtn.onclick = () => logoutBtn.classList.toggle("hidden");
+
+logoutBtn.onclick = async () => {
+  chrome?.runtime?.sendMessage({ type: "LOGOUT" });
+  await signOut(auth);
   window.location.href = "login.html";
 };
 
-
-/* ================= AUTH STATE ================= */
-onAuthStateChanged(auth, user => {
+/* ================= AUTH GUARD ================= */
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
+    chrome?.runtime?.sendMessage({ type: "LOGOUT" });
     window.location.href = "login.html";
     return;
   }
 
+  const token = await user.getIdToken();
+  syncAuthToExtension(user.uid, token);
+
+  await loadUsername(user.uid);
   loadProducts(user.uid);
 });
 
+/* ================= LOAD USERNAME ================= */
+async function loadUsername(uid) {
+  const snap = await getDoc(doc(db, "users", uid));
+  if (snap.exists()) {
+    usernameDisplay.textContent = snap.data().username;
+  }
+}
 
 /* ================= LOAD PRODUCTS ================= */
 async function loadProducts(uid) {
   productGrid.innerHTML = "";
 
-  const cartRef = collection(db, "users", uid, "cartItems");
-  const snap = await getDocs(cartRef);
+  const snap = await getDocs(collection(db, "users", uid, "cartItems"));
 
   snap.forEach(docSnap => {
     const p = docSnap.data();
@@ -154,9 +182,7 @@ async function loadProducts(uid) {
 
     productGrid.appendChild(card);
 
-    /* ❤️ FAVORITE TOGGLE */
-    const favBtn = document.getElementById(`fav-${itemId}`);
-    favBtn.onclick = async () => {
+    document.getElementById(`fav-${itemId}`).onclick = async () => {
       await updateDoc(
         doc(db, "users", uid, "cartItems", itemId),
         { favorite: !p.favorite }
@@ -166,5 +192,6 @@ async function loadProducts(uid) {
   });
 }
 </script>
+
 </body>
 </html>
