@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login | UniCart</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-200 to-violet-400">
+
+  <div class="bg-white p-6 rounded-xl w-[320px] shadow">
+    <h1 class="text-2xl font-bold text-center mb-4 text-violet-700">
+      Login
+    </h1>
+
+    <input id="email" type="email" placeholder="Email"
+      class="w-full p-2 border rounded mb-2"/>
+
+    <input id="password" type="password" placeholder="Password"
+      class="w-full p-2 border rounded mb-4"/>
+
+    <button id="loginBtn"
+      class="w-full bg-violet-500 text-white p-2 rounded">
+      Login
+    </button>
+
+    <p class="text-sm text-center mt-3">
+      New here?
+      <a href="register.html" class="underline text-violet-600">Create account</a>
+    </p>
+  </div>
+
+  <!-- Firebase -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+  apiKey: "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958",
+  authDomain: "unicart-c9cc2.firebaseapp.com",
+  projectId: "unicart-c9cc2",
+  storageBucket: "unicart-c9cc2.firebasestorage.app",
+  messagingSenderId: "498329018726",
+  appId: "1:498329018726:web:ce6a79d1ff8ea1ffe228a7",
+  measurementId: "G-53C0T6XWRY"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    document.getElementById("loginBtn").onclick = async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        window.location.href = "app.html";
+      } catch (e) {
+        alert(e.message);
+      }
+    };
+
+    // Auto-redirect if already logged in
+    onAuthStateChanged(auth, (user) => {
+      if (user) window.location.href = "app.html";
+    });
+  </script>
+</body>
+</html>

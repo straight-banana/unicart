@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial; width: 350px; padding: 10px; }
+    input, button { width: 100%; margin: 4px 0; }
+    img { width: 40px; }
+  </style>
+</head>
+<body>
+
+<div id="auth">
+  <input id="email" placeholder="Email" />
+  <input id="password" type="password" placeholder="Password" />
+  <button id="login">Login / Signup</button>
+</div>
+
+<div id="app" style="display:none;">
+  <h3>🛒 My Cart</h3>
+  <table>
+    <tbody id="cart"></tbody>
+  </table>
+  <button id="logout">Logout</button>
+</div>
+
+<script type="module" src="popup.js"></script>
+</body>
+</html>

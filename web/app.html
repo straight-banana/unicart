@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniCart</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+<style type="text/tailwindcss">
+@layer utilities{
+  button{@apply rounded-xl m-[5px] p-[10px] w-[200px]}
+}
+</style>
+</head>
+
+<body class="bg-gradient-to-b from-purple-200 to-violet-400">
+
+<!-- AUTH MODAL -->
+<div id="authModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+  <div class="bg-white p-6 rounded-xl w-[320px] text-center">
+    <h2 class="text-xl font-bold mb-3">Login / Register</h2>
+    <button id="loginBtn" class="bg-violet-500 text-white w-full mb-2">Login</button>
+    <button id="registerBtn" class="bg-pink-500 text-white w-full">Register</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav class="px-[20px] flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-violet-800">UniCart</h1>
+
+  <div class="flex justify-center items-center h-[10vh] relative">
+    <div class="bg-gradient-to-r from-violet-400 to-pink-500 blur-sm w-[55vh] h-[5vh] absolute"></div>
+    <input class="p-2 w-[50vh] h-[5vh] bg-white rounded-l-[2.5vh] z-10" placeholder="Search">
+    <button class="w-[5vh] h-[5vh] bg-white rounded-r-[2.5vh] z-10">🔍</button>
+  </div>
+
+  <div id="profileBtn"
+    class="p-[10px] rounded-3xl bg-gradient-to-r from-pink-400 to-violet-400 hover:scale-110 text-white cursor-pointer">
+    👤
+  </div>
+</nav>
+
+<main class="flex">
+
+<!-- SIDEBAR -->
+<div class="w-[250px] h-screen bg-gradient-to-b from-purple-300 to-pink-300 flex flex-col items-center py-[20px]">
+  <button class="bg-gradient-to-r from-pink-300 to-violet-400 text-white font-bold">Dashboard</button>
+  <button class="bg-gradient-to-r from-pink-300 to-violet-400 text-white font-bold">Favorites</button>
+  <button class="bg-gradient-to-r from-pink-300 to-violet-400 text-white font-bold">Compare List</button>
+  <button class="bg-gradient-to-r from-pink-300 to-violet-400 text-white font-bold">Settings</button>
+  <button class="bg-gradient-to-r from-pink-300 to-violet-400 text-white font-bold">Help</button>
+</div>
+
+<!-- CONTENT -->
+<div class="flex-1">
+  <h2 class="text-xl font-bold text-violet-800 mx-[10px]">My Products</h2>
+  <p class="mx-[10px] text-purple-800">Welcome to your product space.</p>
+
+  <div id="productGrid"
+    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[30px] mt-[30px] mx-[20px]">
+  </div>
+</div>
+</main>
+
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAyJ9h60-ZKlLXoD061u5PJvcTddLK_958",
+  authDomain: "unicart-c9cc2.firebaseapp.com",
+  projectId: "unicart-c9cc2",
+  storageBucket: "unicart-c9cc2.firebasestorage.app",
+  messagingSenderId: "498329018726",
+  appId: "1:498329018726:web:ce6a79d1ff8ea1ffe228a7"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const authModal = document.getElementById("authModal");
+const profileBtn = document.getElementById("profileBtn");
+const loginBtn = document.getElementById("loginBtn");
+const registerBtn = document.getElementById("registerBtn");
+const emailInput = document.getElementById("email");
+const passwordInput = document.getElementById("password");
+const productGrid = document.getElementById("productGrid");
+
+profileBtn.onclick = () => authModal.classList.remove("hidden");
+
+loginBtn.onclick = async () => {
+  try {
+    window.location.href = "login.html"
+    authModal.classList.add("hidden");
+  } catch (e) { alert(e.message); }
+};
+
+registerBtn.onclick = async () => {
+  try {
+    window.location.href = "register.html"
+    authModal.classList.add("hidden");
+  } catch (e) { alert(e.message); }
+};
+
+
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  authModal.classList.add("hidden");
+  loadProducts(user.uid);
+});
+
+async function loadProducts(uid) {
+  productGrid.innerHTML = "";
+  const q = query(collection(db, "products"), where("userId", "==", uid));
+  const snap = await getDocs(q);
+
+  snap.forEach(d => {
+    const p = d.data();
+    const card = document.createElement("div");
+    card.className =
+      "rounded-xl bg-pink-300 h-[300px] w-[250px] text-center font-bold flex flex-col items-center hover:bg-purple-300 hover:scale-110 relative";
+
+    const heartColor = p.favourite ? "❤️" : "🖤";
+
+    card.innerHTML = `
+      <div class="absolute top-2 right-2 text-2xl cursor-pointer select-none heart">${heartColor}</div>
+
+      <div class="bg-white h-[200px] w-full rounded-xl overflow-hidden">
+        <img src="${p.image}" class="h-full w-full object-cover">
+      </div>
+
+      <h1 class="text-white">${p.name}</h1>
+      <p>Price: ${p.price}</p>
+      <p>${p.website}</p>
+    `;
+
+    const heart = card.querySelector(".heart");
+    heart.onclick = async () => {
+      const newValue = !p.favourite;
+      p.favourite = newValue;
+      heart.textContent = newValue ? "❤️" : "🖤";
+      await updateDoc(doc(db, "products", d.id), { favourite: newValue });
+    };
+
+    productGrid.appendChild(card);
+  });
+}
+</script>
+</body>
+</html>
