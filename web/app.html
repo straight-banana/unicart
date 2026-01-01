@@ -176,8 +176,21 @@ async function loadProducts(uid) {
       </div>
 
       <h1 class="text-white">${p.name}</h1>
-      <p>Price: ${p.price}</p>
-      <p>${p.link}</p>
+      <div class="w-full px-3 mt-1">
+        <label class="block text-sm text-white/90 font-semibold mb-1">Price</label>
+        <input
+          id="price-${itemId}"
+          value="${(p.price ?? "").toString().replaceAll('"', '&quot;')}"
+          class="w-full p-2 rounded-lg text-sm font-semibold"
+          placeholder="Enter price"
+        />
+      </div>
+      <a
+        href="${(p.link ?? "").toString().replaceAll('\"', '&quot;')}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-white underline mt-1"
+      >Go to product</a>
     `;
 
     productGrid.appendChild(card);
@@ -189,6 +202,28 @@ async function loadProducts(uid) {
       );
       loadProducts(uid);
     };
+
+    const priceInput = document.getElementById(`price-${itemId}`);
+    const savePrice = async () => {
+      const nextPrice = priceInput.value.trim();
+      if (nextPrice === (p.price ?? "").toString()) return;
+      await updateDoc(doc(db, "users", uid, "cartItems", itemId), {
+        price: nextPrice
+      });
+      // update local snapshot so repeated blurs don't re-save
+      p.price = nextPrice;
+    };
+
+    priceInput.addEventListener("blur", () => {
+      savePrice().catch(console.error);
+    });
+
+    priceInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        priceInput.blur();
+      }
+    });
   });
 }
 </script>
